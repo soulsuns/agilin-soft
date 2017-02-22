@@ -34,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import diff.core.Diff_match_patch.Diff;
+import diff.util.LogWriter;
 
 /*
  * Functions for diff, match and patch.
@@ -1375,13 +1376,11 @@ public class Diff_match_patch {
       String text = aDiff.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\t", "<TAB/>");
       switch (aDiff.operation) {
       case INSERT:
-    	  if("".equals(text))
-    		  continue;
-    	html.append("<//ins>");
+    	html.append("<//ins>");//.append(text.replaceAll("\n", "\n<//ins>"));
     	
     	String[] lines = text.split("\n", -1);
     	
-		html.append(lines[0]);		// <TAB/>String param2 = args[0];
+		html.append(lines[0]);
 		for(int ii=1; ii<lines.length; ii++) {
 			if(ii == lines.length-1 && ((lines[ii].replaceAll("<TAB/>", "")).trim()).equals(""))
 				html.append("\n");

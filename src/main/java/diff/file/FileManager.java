@@ -12,19 +12,31 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+//import java.nio.file.Path;
+//import java.nio.file.Paths;
+//import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.mozilla.universalchardet.UniversalDetector;
 
-import diff.util.ConfigLoader;
+import diff.filter.FileFilter;
+import diff.util.FileListConfigLoader;
+import diff.util.LogWriter;
 
 public class FileManager {
+	
+	private final static CopyOption[] options = new CopyOption[] {
+		StandardCopyOption.REPLACE_EXISTING,
+		StandardCopyOption.COPY_ATTRIBUTES
+	};
 	
 	public FileManager() {
 		
@@ -63,29 +75,104 @@ public class FileManager {
 					fVo.setAbsPath((file.getCanonicalPath()).substring(0, (file.getCanonicalPath()).lastIndexOf("\\")).replace("\\", "/"));
 					
 //					System.out.println(fVo.toString());
-//					filePaths.add(file.getPath());
-//					filePaths.add(file.getCanonicalPath());
 					
 					fileList.add(fVo);
 				}catch(Exception e){
 					e.printStackTrace();
+					LogWriter.printStackTreace(e);
 				}
-//				System.out.println("파일 크기 : "+file.length());
-//				System.out.println("———————————-");
 			}
 			else if(file.isDirectory())
 			{
-//				System.out.println("디렉토리 이름 : "+file.getName());
 				try{
-//					System.out.println("디렉토리 경로 : "+file.getCanonicalPath());
 				}catch(Exception e){
 					e.printStackTrace();
+					LogWriter.printStackTreace(e);
 				}
-//				System.out.println("———————————-");
 			}
 		}
 		
-//		parsingTableName(filePaths, fileNames);
+	}
+	
+	public void createFolderFileListAddFilter(ArrayList<FileVO> fileList, String folderPath) {
+		
+		FileFilter fFilter = null;
+		FileListConfigLoader confInstance = null;
+		
+		try {
+			fFilter = FileFilter.getInstance();
+			confInstance = FileListConfigLoader.getInstance();
+		} catch (Exception e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		File f= new File(folderPath);
+		ArrayList<File> subFiles= new ArrayList<File>();
+		FileVO fVo = null;
+		
+		if(!f.exists())
+		{
+			System.out.println("디렉토리가 존재하지 않습니다");
+			return;
+		}
+		
+		findSubFilesAddFilter(f, subFiles, confInstance.getFilterFolder(), fFilter);
+		
+		
+		for(File file : subFiles)
+		{
+			
+			boolean isFilterFile = false;
+			
+			if(file.isFile())
+			{
+				for(int ii=0; ii<confInstance.getFilterFile().size(); ii++) {
+					
+					if(fFilter.isFilterFile(confInstance.getFilterFile().get(ii), file)) {
+						try {
+							LogWriter.info(" - 파일 : " + file.getCanonicalPath());
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+							LogWriter.printStackTreace(e);
+						}
+						isFilterFile = true;
+						break;
+					}
+				}
+				
+				if(!isFilterFile) {
+				
+					fVo = new FileVO();
+					
+					fVo.setFileName(file.getName());
+					try{
+						
+						fVo.setRelativeFilePath(file.getPath().replace("\\", "/"));
+						fVo.setAbsFilePath(file.getCanonicalPath().replace("\\", "/"));
+						
+						fVo.setRelativePath((file.getPath()).substring(0, (file.getPath()).lastIndexOf("\\")).replace("\\", "/"));
+						fVo.setAbsPath((file.getCanonicalPath()).substring(0, (file.getCanonicalPath()).lastIndexOf("\\")).replace("\\", "/"));
+						
+						
+						fileList.add(fVo);
+					}catch(Exception e){
+						e.printStackTrace();
+						LogWriter.printStackTreace(e);
+					}
+				}
+			}
+			else if(file.isDirectory())
+			{
+				try{
+				}catch(Exception e){
+					e.printStackTrace();
+					LogWriter.printStackTreace(e);
+				}
+			}
+		}
+		
 //		System.out.println("------- 파싱 종료");
 	}
 	
@@ -103,13 +190,14 @@ public class FileManager {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			LogWriter.printStackTreace(e);
 		}
 		
 		return fw;
 		
 	}
 	
-	public PrintWriter writeFileLoad(String filePath, String encoding, boolean append) {
+	public static PrintWriter writeFileLoad(String filePath, String encoding, boolean append) {
 		// sample.txt 파일을 File 객체로 가져온다.
 		PrintWriter outWriter = null;
 		
@@ -121,6 +209,7 @@ public class FileManager {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			LogWriter.printStackTreace(e);
 		}
 		
 		return outWriter;
@@ -143,6 +232,7 @@ public class FileManager {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			LogWriter.printStackTreace(e);
 		}
 		
 		return fw;
@@ -166,13 +256,63 @@ public class FileManager {
 		}
 	}
 	
+	public void findSubFilesAddFilter(File parentFile, ArrayList<File> subFiles, ArrayList<String> filterFolderList, FileFilter fFilter)
+	{
+		if(parentFile.isFile())
+		{
+			boolean isFilterFolder = false;
+			for(int ii=0; ii<filterFolderList.size(); ii++) {
+				if(fFilter.isFilterFolder(filterFolderList.get(ii), parentFile)) {
+					try {
+						LogWriter.info(" - 폴더 : " + parentFile.getCanonicalPath());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+						LogWriter.printStackTreace(e);
+					}
+					isFilterFolder = true;
+					break;
+				}
+			}
+			
+			if(!isFilterFolder)
+				subFiles.add(parentFile);
+		}
+		else if(parentFile.isDirectory())
+		{
+			boolean isFilterFolder = false;
+			for(int ii=0; ii<filterFolderList.size(); ii++) {
+				if(fFilter.isFilterFolder(filterFolderList.get(ii), parentFile)) {
+					try {
+						LogWriter.info(" - 폴더 : " + parentFile.getCanonicalPath());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+						LogWriter.printStackTreace(e);
+					}
+					isFilterFolder = true;
+					break;
+				}
+			}
+			
+			if(!isFilterFolder) {
+				subFiles.add(parentFile);
+				File[] childFiles= parentFile.listFiles();
+				for(File childFile : childFiles)
+				{
+					findSubFilesAddFilter(childFile, subFiles, filterFolderList, fFilter);
+				}
+			}
+		}
+	}
+	
 	public String getFileText(String fullPath) {
 		StringBuffer text = new StringBuffer();
 		BufferedReader br = null;
 		
 		try{
 			br = new BufferedReader(new InputStreamReader(new FileInputStream(fullPath), FileManager.getEncoding(fullPath)));
-			
+			System.out.println(fullPath);
 			String fileRead = br.readLine();
 			while (fileRead != null) {
 				text.append(fileRead+"\n");
@@ -181,6 +321,7 @@ public class FileManager {
             }
 		}catch(IOException e){
 			e.printStackTrace();
+			LogWriter.printStackTreace(e);
 		}finally{
 			if(br != null) try{br.close();}catch(IOException e){}
 		}
@@ -209,6 +350,7 @@ public class FileManager {
             }
 		}catch(IOException e){
 			e.printStackTrace();
+			LogWriter.printStackTreace(e);
 		}finally{
 			if(br != null) try{br.close();}catch(IOException e){}
 		}
@@ -223,8 +365,71 @@ public class FileManager {
 		return f.isFile();
 	}
 	
-	public static boolean isBinaryFile(String path) throws FileNotFoundException, IOException {
-		File f = new File(path);
+	public String getFileFullPath(String filePath) {
+		
+		File f = new File(filePath);
+		
+		try {
+			return f.getCanonicalPath();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			LogWriter.printStackTreace(e);
+		}
+		
+		return "";
+	}
+	
+	public void makeDir4List(ArrayList<String> fileList, String outFilePath, String startCopyPath) {
+		
+		String orgOutPath = "";
+		String outPath = "";
+		String startPath = "";
+		
+		String oldPath = "";
+		
+		try {
+			File file = new File(outFilePath);
+			
+			orgOutPath = file.getCanonicalPath().replace("\\", "/");
+		
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			LogWriter.printStackTreace(e);
+		}
+		
+		try {
+			File file = new File(startCopyPath);
+			
+			startPath = file.getCanonicalPath().replace("\\", "/");
+	
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			LogWriter.printStackTreace(e);
+		}
+		
+		try {
+			for(int ii=0; ii<fileList.size(); ii++) {
+				File file = new File(fileList.get(ii));
+				outPath = orgOutPath;
+				
+				oldPath = (file.getCanonicalPath()).substring(0, (file.getCanonicalPath()).lastIndexOf("\\")).replace("\\", "/");
+				outPath = outPath + oldPath.replaceFirst(startPath, "");
+				
+				this.makeDirs(outPath);
+			}
+		
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			LogWriter.printStackTreace(e);
+		}
+	}
+	
+	
+	public static boolean isBinaryFile(File f) throws FileNotFoundException, IOException {
 	    FileInputStream in = new FileInputStream(f);
 	    int size = in.available();
 	    if(size > 1024) size = 1024;
@@ -249,44 +454,76 @@ public class FileManager {
 	    return 100 * other / (ascii + other) > 95;
 	}
 	
-	public static boolean isAsciiText(String fileName) throws IOException {
-
-	    InputStream in = new FileInputStream(fileName);
-	    
-	    long fileSize = (new File(fileName)).length();
-	    
-	    if(fileSize > 500)
-	    	fileSize = 500;
-	    
-	    byte[] bytes = new byte[(int)fileSize];
-
-	    in.read(bytes, 0, bytes.length);
-	    int x = 0;
-	    short bin = 0;
-
-	    for (byte thisByte : bytes) {
-	        char it = (char) thisByte;
-	        if (!Character.isWhitespace(it) && Character.isISOControl(it)) {
-
-	            bin++;
-	        }
-	        if (bin >= 5) {
-	            return false;
-	        }
-	        x++;
-	    }
-	    in.close();
-	    return true;
+	public static boolean isAsciiFile(String fileName) {
+		
+		InputStream in;
+		
+		try {
+			in = new FileInputStream(fileName);
+		
+			int maxByte = 0;
+			File f = new File(fileName);
+			if(f.length() > 1024)
+				maxByte = 1024;
+			else
+				maxByte = (int)f.length();
+			
+			byte[] bytes = new byte[maxByte];
+			
+			in.read(bytes, 0, bytes.length);
+			in.close();
+			int x = 0;
+			short bin = 0;
+			
+			for(byte thisByte : bytes) {
+				char it = (char) thisByte;
+				if(!Character.isWhitespace(it) && Character.isISOControl(it)) {
+					bin++;
+				}
+				if(bin >= 5) {
+					return false;
+				}
+				x++;
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			LogWriter.printStackTreace(e);
+		}
+		
+		return true;
 	}
 	
-	public static void copyFile(String sourceFilePath, String targetFilePath) {
+	
+	// jdk1.7 이상에서 사용
+	public static void copyFile2(String sourceFilePath, String targetFilePath) {
 		Path source = Paths.get(sourceFilePath);
 		Path target = Paths.get(targetFilePath);
 		try
 		{
-		    Files.copy( source , target , StandardCopyOption.COPY_ATTRIBUTES );
+			
+			if(!target.getParent().toFile().exists()) {
+				target.getParent().toFile().mkdirs();
+			}
+			
+		    Files.copy( source , target , options );
 
 		    //Files.move( source , target , StandardCopyOption.ATOMIC_MOVE );
+		}
+		catch ( IOException e )
+		{
+		    e.printStackTrace( );
+		}
+	}
+	
+	// jdk1.6 이하에서 사용
+	public static void copyFile(String sourceFilePath, String targetFilePath) {
+		try {
+			FileInputStream fis = new FileInputStream(sourceFilePath);
+			FileOutputStream fos = new FileOutputStream(targetFilePath);
+			FileChannel fic = fis.getChannel();
+			FileChannel foc = fos.getChannel();
+			fic.transferTo(0, fic.size(), foc);
 		}
 		catch ( IOException e )
 		{
@@ -347,3 +584,5 @@ public class FileManager {
 	    return encoding;
 		
 	}
+	
+}
