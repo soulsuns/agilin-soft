@@ -22,5 +22,6 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="D:/Tools/sts-agilin_home/workspace/Diff_1_3/resource/lib/juniversalchardet-1.0.3.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

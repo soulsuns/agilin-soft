@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
 
+import diff.file.FileManager;
 /**
  * Config 파일에서 정보를 가져오는 클래스
  * 
@@ -16,7 +17,7 @@ import java.util.StringTokenizer;
  */
 public class ConfigLoader {
 
-	private ArrayList<Map> diffMapList = null;
+	private ArrayList<Map> systemMapList = null;
 
 	private Map<String, String> commonMap = null;
 	
@@ -46,16 +47,15 @@ public class ConfigLoader {
 	 * conf 파일을 로드하여 맵핑
 	 */
 	public void loadMessage() throws Exception {
-		System.out.println("ConfigLoader.load start");
 		
-		diffMapList =  new ArrayList<Map>();
+		systemMapList =  new ArrayList<Map>();
 		commonMap = new HashMap<String, String>();
 		Map<String, String> diffMap = null;
 		
 		try
 		{
 			FileInputStream fi = new FileInputStream(SYSTEM_PROPERTIES_PATH);
-			BufferedReader br = new BufferedReader(new InputStreamReader(fi));
+			BufferedReader br = new BufferedReader(new InputStreamReader(fi, FileManager.getEncoding(SYSTEM_PROPERTIES_PATH)));
 			String str = null;
 			boolean isCommon = false;
 			do {
@@ -75,7 +75,7 @@ public class ConfigLoader {
 						
 						if(str.indexOf("[Diff-") != -1) {
 							if(diffMap != null) {
-								diffMapList.add(diffMap);
+								systemMapList.add(diffMap);
 							}
 							diffMap = new HashMap<String, String>();
 						}
@@ -102,7 +102,7 @@ public class ConfigLoader {
 			} while (str != null);
 			
 			if(diffMap != null) {
-				diffMapList.add(diffMap);
+				systemMapList.add(diffMap);
 			}
 			
 		} catch (Exception e) {
@@ -114,27 +114,27 @@ public class ConfigLoader {
 	}
 	
 	public int getDiffSize() {
-		return diffMapList.size();
+		return systemMapList.size();
 	}
 	
 	public String getCommonMapValue(String key) {
-		return commonMap.get(key);
+		return StringUtil.parseLastSlash(commonMap.get(key));
 	}
 
 	public String getOutFilePath(int index) {
-		return (String)(diffMapList.get(index)).get("OUT_FILE_PATH");
+		return StringUtil.parseLastSlash((String)(systemMapList.get(index)).get("OUT_FILE_PATH"));
 	}
 	
 	public String getOldFilePath(int index) {
-		return (String)(diffMapList.get(index)).get("OLD_FILE_PATH");
+		return StringUtil.parseLastSlash((String)(systemMapList.get(index)).get("OLD_FILE_PATH"));
 	}
 	
 	public String getNewFilePath(int index) {
-		return (String)(diffMapList.get(index)).get("NEW_FILE_PATH");
+		return StringUtil.parseLastSlash((String)(systemMapList.get(index)).get("NEW_FILE_PATH"));
 	}
 	
 	
 	public String getOutFileName(int index) {
-		return (String)(diffMapList.get(index)).get("OUT_FILE_NAME");
+		return StringUtil.parseLastSlash((String)(systemMapList.get(index)).get("OUT_FILE_NAME"));
 	}
 }

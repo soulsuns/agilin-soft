@@ -3,12 +3,13 @@ package diff.report;
 import java.io.IOException;
 
 import diff.file.FileManager;
-import diff.util.ConfigLoader;
+import diff.util.DiffConfigLoader;
+import diff.util.LogWriter;
 
 public class HmlReport {
 	
 	private static FileManager fm = new FileManager();
-	private ConfigLoader confInstance = null;
+	private DiffConfigLoader confInstance = null;
 	
 	private String header;
 	private String footer;
@@ -20,9 +21,10 @@ public class HmlReport {
 	public HmlReport() {
 		
 		try {
-			confInstance = ConfigLoader.getInstance();
+			confInstance = DiffConfigLoader.getInstance();
 		} catch(Exception e) {
 			e.printStackTrace();
+			LogWriter.printStackTreace(e);
 		}
 		
 		header = fm.getFileText(confInstance.getCommonMapValue("HML_HEADER_PATH"));
